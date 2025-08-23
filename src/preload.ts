@@ -43,6 +43,24 @@ const api = {
     ipcRenderer.invoke('r2:delete-bucket', bucketName),
   listObjects: (params: { bucketName: string; prefix?: string }): Promise<ListObjectsResult> =>
     ipcRenderer.invoke('r2:list-objects', params),
+  uploadObject: (params: {
+    bucketName: string
+    prefix?: string
+  }): Promise<{ success: boolean; cancelled?: boolean }> =>
+    ipcRenderer.invoke('r2:upload-object', params),
+  downloadObject: (params: {
+    bucketName: string
+    key: string
+  }): Promise<{ success: boolean; cancelled?: boolean }> =>
+    ipcRenderer.invoke('r2:download-object', params),
+  deleteObject: (params: { bucketName: string; key: string }): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('r2:delete-object', params),
+  onUploadProgress: (callback: (data: { key: string; progress: number }) => void) => {
+    const handler = (_event: unknown, data: { key: string; progress: number }) => callback(data)
+    ipcRenderer.on('upload-progress', handler)
+    // Return a cleanup function
+    return () => ipcRenderer.removeListener('upload-progress', handler)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

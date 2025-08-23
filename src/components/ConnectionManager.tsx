@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import type { AddConnectionData } from '../preload'
 
 interface ConnectionManagerProps {
-  onConnectionSuccess: (connectionId: number) => void
+  onConnectionSuccess: (connection: import('../preload').ConnectionDisplay) => void
 }
 
 const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSuccess }) => {
@@ -46,7 +46,10 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
     mutationFn: (id: number) => window.api.connectToR2(id),
     onSuccess: (result, id) => {
       if (result.success) {
-        onConnectionSuccess(id)
+        const connection = connections?.find(conn => conn.id === id)
+        if (connection) {
+          onConnectionSuccess(connection)
+        }
       }
     },
   })

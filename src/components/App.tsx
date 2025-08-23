@@ -8,15 +8,9 @@ const App: React.FC = () => {
   const [activeConnection, setActiveConnection] = useState<ConnectionDisplay | null>(null)
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null)
 
-  const handleConnectionSuccess = (connectionId: number) => {
-    // Fetch the connection details to store the full object
-    window.api.getConnections().then(connections => {
-      const connection = connections.find(conn => conn.id === connectionId)
-      if (connection) {
-        setActiveConnection(connection)
-        setSelectedBucket(null)
-      }
-    })
+  const handleConnectionSuccess = (connection: ConnectionDisplay) => {
+    setActiveConnection(connection)
+    setSelectedBucket(null)
   }
 
   if (!activeConnection) {

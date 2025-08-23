@@ -1,14 +1,18 @@
-import path from 'node:path'
+import { createReadStream, createWriteStream } from 'node:fs'
+import path, { basename } from 'node:path'
 import {
   CreateBucketCommand,
   DeleteBucketCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
   ListBucketsCommand,
   ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron'
 import started from 'electron-squirrel-startup'
 import { db } from '@/main/db'
 import { connections } from '@/main/db/schema'
@@ -19,12 +23,13 @@ if (started) {
   app.quit()
 }
 
-// Global state for active S3 client
+// Global state for active S3 client and main window reference
 let _s3Client: S3Client | null = null
+let mainWindow: BrowserWindow | null = null
 
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
@@ -276,4 +281,155 @@ ipcMain.handle(
 
       return { folders, objects }
     }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'r2:upload-object',
+  (_, { bucketName, prefix }: { bucketName: string; prefix?: string }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          dialog.showOpenDialog({
+            properties: ['openFile'],
+          }),
+        catch: error => {
+          console.error('Error opening file dialog:', error)
+          return new Error('Failed to open file dialog')
+        },
+      })
+
+      if (result.canceled || !result.filePaths.length) {
+        return { success: false, cancelled: true }
+      }
+
+      const filePath = result.filePaths[0]
+      const fileName = basename(filePath)
+      const key = prefix ? `${prefix}${fileName}` : fileName
+
+      const fileStream = createReadStream(filePath)
+
+      const upload = new Upload({
+        client: _s3Client!,
+        params: {
+          Bucket: bucketName,
+          Key: key,
+          Body: fileStream,
+        },
+      })
+
+      upload.on('httpUploadProgress', progress => {
+        if (progress.loaded && progress.total) {
+          const percentage = Math.round((progress.loaded / progress.total) * 100)
+          mainWindow?.webContents.send('upload-progress', { key, progress: percentage })
+        }
+      })
+
+      yield* Effect.tryPromise({
+        try: () => upload.done(),
+        catch: error => {
+          console.error('Error uploading object:', error)
+          return new Error(
+            `Failed to upload object: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        },
+      })
+
+      return { success: true }
+    }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'r2:download-object',
+  (_, { bucketName, key }: { bucketName: string; key: string }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          dialog.showSaveDialog({
+            defaultPath: basename(key),
+          }),
+        catch: error => {
+          console.error('Error opening save dialog:', error)
+          return new Error('Failed to open save dialog')
+        },
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, cancelled: true }
+      }
+
+      const response = yield* Effect.tryPromise({
+        try: () =>
+          _s3Client!.send(
+            new GetObjectCommand({
+              Bucket: bucketName,
+              Key: key,
+            })
+          ),
+        catch: error => {
+          console.error('Error downloading object:', error)
+          return new Error(
+            `Failed to download object: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        },
+      })
+
+      if (!response.Body) {
+        yield* Effect.fail(new Error('No body in response'))
+      }
+
+      const writeStream = createWriteStream(result.filePath)
+
+      yield* Effect.tryPromise({
+        try: () =>
+          new Promise<void>((resolve, reject) => {
+            const body = response.Body as NodeJS.ReadableStream
+            body.pipe(writeStream)
+            body.on('error', reject)
+            writeStream.on('error', reject)
+            writeStream.on('close', resolve)
+          }),
+        catch: error => {
+          console.error('Error writing file:', error)
+          return new Error(
+            `Failed to write file: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        },
+      })
+
+      return { success: true }
+    }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle('r2:delete-object', (_, { bucketName, key }: { bucketName: string; key: string }) =>
+  Effect.gen(function* () {
+    if (!_s3Client) {
+      yield* Effect.fail(new Error('Not connected to R2'))
+    }
+
+    yield* Effect.tryPromise({
+      try: () =>
+        _s3Client!.send(
+          new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: key,
+          })
+        ),
+      catch: error => {
+        console.error('Error deleting object:', error)
+        return new Error(
+          `Failed to delete object: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      },
+    })
+
+    return { success: true }
+  }).pipe(Effect.runPromise)
 )

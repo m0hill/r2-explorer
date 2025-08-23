@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "experimentalScannerIgnores": ["node_modules"]
+    "experimentalScannerIgnores": ["node_modules", ".vite"]
   },
   "formatter": {
     "enabled": true,
