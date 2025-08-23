@@ -2,7 +2,11 @@ import type { Bucket } from '@aws-sdk/client-s3'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
 
-const BucketExplorer: React.FC = () => {
+interface BucketExplorerProps {
+  onBucketSelect: (bucketName: string) => void
+}
+
+const BucketExplorer: React.FC<BucketExplorerProps> = ({ onBucketSelect }) => {
   const [newBucketName, setNewBucketName] = useState('')
   const [deletingBucket, setDeletingBucket] = useState<string | null>(null)
   const queryClient = useQueryClient()
@@ -131,7 +135,10 @@ const BucketExplorer: React.FC = () => {
           <div className="divide-y divide-gray-200">
             {buckets.map((bucket: Bucket) => (
               <div key={bucket.Name} className="px-6 py-4 flex items-center justify-between">
-                <div>
+                <div
+                  className="flex-1 cursor-pointer hover:text-blue-600"
+                  onClick={() => onBucketSelect(bucket.Name!)}
+                >
                   <h3 className="text-sm font-medium text-gray-900">{bucket.Name}</h3>
                   {bucket.CreationDate && (
                     <p className="text-sm text-gray-500">

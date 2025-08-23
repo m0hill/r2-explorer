@@ -1,30 +1,31 @@
-import { useQuery } from '@tanstack/react-query'
 import React, { useState } from 'react'
+import type { ConnectionDisplay } from '../preload'
 import BucketExplorer from './BucketExplorer'
 import ConnectionManager from './ConnectionManager'
+import ObjectExplorer from './ObjectExplorer'
 
 const App: React.FC = () => {
-  const [activeConnectionId, setActiveConnectionId] = useState<number | null>(null)
-
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => window.api.getConnections(),
-    enabled: !!activeConnectionId,
-  })
+  const [activeConnection, setActiveConnection] = useState<ConnectionDisplay | null>(null)
+  const [selectedBucket, setSelectedBucket] = useState<string | null>(null)
 
   const handleConnectionSuccess = (connectionId: number) => {
-    setActiveConnectionId(connectionId)
+    // Fetch the connection details to store the full object
+    window.api.getConnections().then(connections => {
+      const connection = connections.find(conn => conn.id === connectionId)
+      if (connection) {
+        setActiveConnection(connection)
+        setSelectedBucket(null)
+      }
+    })
   }
 
-  if (!activeConnectionId) {
+  if (!activeConnection) {
     return (
       <div className="min-h-screen bg-gray-50">
         <ConnectionManager onConnectionSuccess={handleConnectionSuccess} />
       </div>
     )
   }
-
-  const activeConnection = connections?.find(conn => conn.id === activeConnectionId)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,7 +42,7 @@ const App: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                setActiveConnectionId(null)
+                setActiveConnection(null)
               }}
               className="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors"
             >
@@ -52,7 +53,11 @@ const App: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <BucketExplorer />
+        {selectedBucket ? (
+          <ObjectExplorer bucketName={selectedBucket} onBack={() => setSelectedBucket(null)} />
+        ) : (
+          <BucketExplorer onBucketSelect={setSelectedBucket} />
+        )}
       </div>
     </div>
   )

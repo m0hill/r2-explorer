@@ -18,6 +18,18 @@ export type BucketResult = {
   error?: string
 }
 
+export type R2Object = {
+  key: string
+  size?: number
+  lastModified?: Date
+  etag?: string
+}
+
+export type ListObjectsResult = {
+  folders: string[]
+  objects: R2Object[]
+}
+
 const api = {
   getConnections: (): Promise<ConnectionDisplay[]> => ipcRenderer.invoke('connections:get'),
   addConnection: (data: AddConnectionData): Promise<number> =>
@@ -29,6 +41,8 @@ const api = {
     ipcRenderer.invoke('r2:create-bucket', bucketName),
   deleteBucket: (bucketName: string): Promise<BucketResult> =>
     ipcRenderer.invoke('r2:delete-bucket', bucketName),
+  listObjects: (params: { bucketName: string; prefix?: string }): Promise<ListObjectsResult> =>
+    ipcRenderer.invoke('r2:list-objects', params),
 }
 
 contextBridge.exposeInMainWorld('api', api)

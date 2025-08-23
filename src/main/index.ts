@@ -3,6 +3,7 @@ import {
   CreateBucketCommand,
   DeleteBucketCommand,
   ListBucketsCommand,
+  ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3'
 import { eq } from 'drizzle-orm'
@@ -240,4 +241,39 @@ ipcMain.handle('r2:delete-bucket', (_, bucketName: string) =>
 
     return { success: true }
   }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'r2:list-objects',
+  (_, { bucketName, prefix }: { bucketName: string; prefix?: string }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      const command = new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: prefix,
+        Delimiter: '/',
+      })
+
+      const response = yield* Effect.tryPromise({
+        try: () => _s3Client!.send(command),
+        catch: error => {
+          console.error('Error listing objects:', error)
+          return new Error('Failed to list objects')
+        },
+      })
+
+      const folders = response.CommonPrefixes?.map(p => p.Prefix!) ?? []
+      const objects =
+        response.Contents?.map(o => ({
+          key: o.Key!,
+          size: o.Size,
+          lastModified: o.LastModified,
+          etag: o.ETag,
+        })) ?? []
+
+      return { folders, objects }
+    }).pipe(Effect.runPromise)
 )
