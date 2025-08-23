@@ -1,20 +1,13 @@
-import React, { useEffect, useState } from 'react'
-import type { AddConnectionData, ConnectionDisplay } from '../preload'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import React, { useState } from 'react'
+import type { AddConnectionData } from '../preload'
 
 interface ConnectionManagerProps {
-  connections: ConnectionDisplay[]
   onConnectionSuccess: (connectionId: number) => void
-  onConnectionsUpdate: (connections: ConnectionDisplay[]) => void
 }
 
-const ConnectionManager: React.FC<ConnectionManagerProps> = ({
-  connections,
-  onConnectionSuccess,
-  onConnectionsUpdate,
-}) => {
+const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSuccess }) => {
   const [showForm, setShowForm] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<AddConnectionData>({
     name: '',
     accountId: '',
@@ -22,74 +15,56 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({
     secretAccessKey: '',
   })
 
-  const fetchConnections = async () => {
-    try {
-      const fetchedConnections = await window.api.getConnections()
-      onConnectionsUpdate(fetchedConnections)
-    } catch (err) {
-      setError('Failed to load connections')
-      console.error('Error fetching connections:', err)
-    }
-  }
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    fetchConnections()
-  }, [])
+  const {
+    data: connections,
+    isLoading: connectionsLoading,
+    error: connectionsError,
+  } = useQuery({
+    queryKey: ['connections'],
+    queryFn: () => window.api.getConnections(),
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      await window.api.addConnection(formData)
+  const addConnectionMutation = useMutation({
+    mutationFn: (data: AddConnectionData) => window.api.addConnection(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
       setFormData({ name: '', accountId: '', accessKeyId: '', secretAccessKey: '' })
       setShowForm(false)
-      await fetchConnections()
-    } catch (err) {
-      setError('Failed to add connection')
-      console.error('Error adding connection:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+  })
 
-  const handleConnect = async (id: number) => {
-    setLoading(true)
-    setError(null)
+  const deleteConnectionMutation = useMutation({
+    mutationFn: (id: number) => window.api.deleteConnection(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
+    },
+  })
 
-    try {
-      const result = await window.api.connectToR2(id)
+  const connectMutation = useMutation({
+    mutationFn: (id: number) => window.api.connectToR2(id),
+    onSuccess: (result, id) => {
       if (result.success) {
         onConnectionSuccess(id)
-      } else {
-        setError(result.error || 'Connection failed')
       }
-    } catch (err) {
-      setError('Connection failed')
-      console.error('Error connecting:', err)
-    } finally {
-      setLoading(false)
-    }
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    addConnectionMutation.mutate(formData)
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this connection?')) {
+  const handleConnect = (id: number) => {
+    connectMutation.mutate(id)
+  }
+
+  const handleDelete = (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this connection?')) {
       return
     }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      await window.api.deleteConnection(id)
-      await fetchConnections()
-    } catch (err) {
-      setError('Failed to delete connection')
-      console.error('Error deleting connection:', err)
-    } finally {
-      setLoading(false)
-    }
+    deleteConnectionMutation.mutate(id)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,9 +89,35 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
+        {connectionsError && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">{error}</div>
+            <div className="text-red-700 text-sm">
+              {connectionsError?.message || 'Failed to load connections'}
+            </div>
+          </div>
+        )}
+
+        {addConnectionMutation.isError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="text-red-700 text-sm">
+              {addConnectionMutation.error?.message || 'Failed to add connection'}
+            </div>
+          </div>
+        )}
+
+        {connectMutation.isError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="text-red-700 text-sm">
+              {connectMutation.error?.message || 'Connection failed'}
+            </div>
+          </div>
+        )}
+
+        {deleteConnectionMutation.isError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="text-red-700 text-sm">
+              {deleteConnectionMutation.error?.message || 'Failed to delete connection'}
+            </div>
           </div>
         )}
 
@@ -203,10 +204,10 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={addConnectionMutation.isPending}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? 'Adding...' : 'Add Connection'}
+                  {addConnectionMutation.isPending ? 'Adding...' : 'Add Connection'}
                 </button>
               </div>
             </form>
@@ -218,13 +219,18 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({
             <h2 className="text-lg font-medium text-gray-900">Saved Connections</h2>
           </div>
 
-          {connections.length === 0 ? (
+          {connectionsLoading ? (
+            <div className="p-6 text-center text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              Loading connections...
+            </div>
+          ) : connections?.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
               No connections saved yet. Click "Add Connection" to get started.
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {connections.map(connection => (
+              {connections?.map(connection => (
                 <div key={connection.id} className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -235,17 +241,17 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({
                     <div className="flex space-x-3">
                       <button
                         onClick={() => handleConnect(connection.id)}
-                        disabled={loading}
+                        disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
                         className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
-                        {loading ? 'Connecting...' : 'Connect'}
+                        {connectMutation.isPending ? 'Connecting...' : 'Connect'}
                       </button>
                       <button
                         onClick={() => handleDelete(connection.id)}
-                        disabled={loading}
+                        disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
                         className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
                       >
-                        Delete
+                        {deleteConnectionMutation.isPending ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </div>

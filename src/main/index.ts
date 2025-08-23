@@ -1,5 +1,10 @@
 import path from 'node:path'
-import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  CreateBucketCommand,
+  DeleteBucketCommand,
+  ListBucketsCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
@@ -177,4 +182,62 @@ ipcMain.handle('r2:connect', (_, id: number) =>
     ),
     Effect.runPromise
   )
+)
+
+ipcMain.handle('r2:list-buckets', () =>
+  Effect.gen(function* () {
+    if (!_s3Client) {
+      yield* Effect.fail(new Error('Not connected to R2'))
+    }
+
+    const response = yield* Effect.tryPromise({
+      try: () => _s3Client!.send(new ListBucketsCommand({})),
+      catch: error => {
+        console.error('Error listing buckets:', error)
+        return new Error('Failed to list buckets')
+      },
+    })
+
+    return response.Buckets || []
+  }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle('r2:create-bucket', (_, bucketName: string) =>
+  Effect.gen(function* () {
+    if (!_s3Client) {
+      yield* Effect.fail(new Error('Not connected to R2'))
+    }
+
+    yield* Effect.tryPromise({
+      try: () => _s3Client!.send(new CreateBucketCommand({ Bucket: bucketName })),
+      catch: error => {
+        console.error('Error creating bucket:', error)
+        return new Error(
+          `Failed to create bucket: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      },
+    })
+
+    return { success: true }
+  }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle('r2:delete-bucket', (_, bucketName: string) =>
+  Effect.gen(function* () {
+    if (!_s3Client) {
+      yield* Effect.fail(new Error('Not connected to R2'))
+    }
+
+    yield* Effect.tryPromise({
+      try: () => _s3Client!.send(new DeleteBucketCommand({ Bucket: bucketName })),
+      catch: error => {
+        console.error('Error deleting bucket:', error)
+        return new Error(
+          `Failed to delete bucket: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      },
+    })
+
+    return { success: true }
+  }).pipe(Effect.runPromise)
 )
