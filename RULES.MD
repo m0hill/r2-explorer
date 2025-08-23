@@ -1,0 +1,35 @@
+- Treat UIs as a thin layer over your data. Skip local state (like useState) unless it's absolutely needed and clearly separate from business logic. Choose variables and useRef if it doesn't need to be reactive.
+- Even when you think you need useState, consider if you can flatten the UI state into a basic calculation. useState is only necessary if it's truly reactive and needs to trigger re-renders.
+- Choose state machines over multiple useState hooks when managing complex state. Multiple boolean flags and interdependent state variables make code harder to reason about and prone to impossible states.
+- When you find yourself with nested if/else or complex conditional rendering, create a new component. Reserve inline ternaries for tiny, readable sections.
+- Choose to derive data rather than use useEffect. Only use useEffect when you need to synchronize with an external system (e.g. document-level events). It causes misdirection of what the logic is doing. Choose to explicitly define logic rather than depend on implicit reactive behavior.
+- Don't use useEffect to orchestrate your application's data flow. Effects are an "escape hatch" - if you're not interacting with an external system, you probably don't need an Effect.
+- Derive state instead of syncing it. If a value can be calculated from existing state or props, calculate it on every render rather than maintaining it as separate state. This prevents synchronization bugs and simplifies your code.
+- Avoid multiple related state variables that need to be kept in sync. Prefer a single source of truth and derive everything else from it. State synchronization is a common source of bugs.
+- Don't sync props to local state with useEffect. If you need to transform props, just calculate the transformation on each render. React is fast enough to handle this.
+- Don't prefix utility functions with "use" unless they actually use other hooks. Only functions that call other hooks should be custom hooks.
+- Always clean up async effects. Use AbortController or flags to prevent race conditions and memory leaks when components unmount before async operations complete.
+- Don't use useRef for values that should trigger re-renders. Use useState for reactive values and useRef only for non-reactive references like DOM nodes or timeout IDs.
+- Always include all dependencies in useEffect dependency arrays. Missing dependencies cause stale closure bugs and unexpected behavior.
+- Use useMemo only after you've measured and confirmed a performance problem. JavaScript is extremely fast - most calculations don't need memoization. Measure first, optimize second.
+- Treat setTimeout as a last resort (and always comment why). They're flaky and usually a hack that can introduce subtle bugs that pile up into major refactoring issues later.
+- Be wary of LLM-generated React code - it often contains common hook anti-patterns and footguns. Always review and understand the patterns being used.
+- IMPORTANT: do not add useless comments. Avoid adding comments unless you're clarifying a race condition (setTimeout), a long-term TODO, or clarifying a confusing piece of code even a senior engineer wouldn't initially understand.
+- Adhere strictly to the Rules of Hooks: always call them at the top level, never inside conditionals, loops, or nested functions. React relies on a consistent call order to track state across renders. To apply logic conditionally, either move the condition inside the hook (e.g., an if block within useEffect) or extract the conditional UI into a new component.
+- Enable all `strict` flags in `tsconfig.json`. This is non-negotiable and the foundation of type safety.
+- Maintain a zero-`any` policy. Use `unknown` with explicit type guards when a type is truly unknown, never `any`.
+- Avoid type assertions (`as`). They often hide underlying type mismatches and should be replaced with type guards or code refactoring.
+- Use discriminated unions to model state. This makes impossible states unrepresentable at the type level, preventing entire classes of bugs.
+- Validate all external data at the boundaries of your application. Never trust data from APIs or `localStorage` without parsing it with a validation library.
+- Prefer `const` assertions over TypeScript `enum`s for defining constant sets of values to avoid runtime overhead and surprising behavior.
+- Colocate types with their usage. Avoid creating monolithic `types.ts` files and only extract types to a shared location when they are used across multiple domains.
+- Always declare explicit return types for functions to enforce the function's contract and improve readability.
+- Always use `import type` when importing types and interfaces to ensure they are fully erased at compile time.
+- Use React Query (useQuery/useInfiniteQuery) for server data; do not fetch in useEffect.
+- Don’t mirror query state in local state. Use query.isLoading, query.data, query.error, and query.refetch.
+- Pass AbortSignal from queryFn to your HTTP client so requests are cancellable.
+- Use enabled for dependent queries to avoid firing with incomplete params.
+- Prefer select in useQuery to compute view models instead of copying to state.
+- Use useMutation for imperative actions (button clicks, downloads). Don’t use useQuery for click-triggered work.
+- Centralize logging and auth handling via QueryCache/MutationCache onError; keep user messages friendly and local.
+- For detail pages, consider refetchOnWindowFocus per-query; keep global behavior minimal if endpoints are heavy.
