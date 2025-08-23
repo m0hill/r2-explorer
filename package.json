@@ -1,0 +1,46 @@
+{
+  "name": "r2-explorer",
+  "productName": "r2-explorer",
+  "version": "1.0.0",
+  "description": "My Electron application description",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "pnpm dlx oxlint@latest",
+    "format": "biome check --write ."
+  },
+  "keywords": [],
+  "author": {
+    "name": "Mohil Garg",
+    "email": "112541468+mohilcode@users.noreply.github.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "2.2.2",
+    "@electron-forge/cli": "^7.8.3",
+    "@electron-forge/maker-deb": "^7.8.3",
+    "@electron-forge/maker-rpm": "^7.8.3",
+    "@electron-forge/maker-squirrel": "^7.8.3",
+    "@electron-forge/maker-zip": "^7.8.3",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.3",
+    "@electron-forge/plugin-fuses": "^7.8.3",
+    "@electron-forge/plugin-vite": "^7.8.3",
+    "@electron/fuses": "^1.8.0",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "electron": "37.3.1",
+    "typescript": "~4.5.4",
+    "vite": "^5.4.19"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.873.0",
+    "@tailwindcss/postcss": "^4.1.12",
+    "alchemy": "^0.62.3",
+    "effect": "^3.17.9",
+    "electron-squirrel-startup": "^1.0.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12"
+  }
+}
