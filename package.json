@@ -10,7 +10,9 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "pnpm dlx oxlint@latest",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "keywords": [],
   "author": {
@@ -29,21 +31,28 @@
     "@electron-forge/plugin-fuses": "^7.8.3",
     "@electron-forge/plugin-vite": "^7.8.3",
     "@electron/fuses": "^1.8.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/react": "^19.1.11",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.1",
+    "drizzle-kit": "^0.31.4",
     "electron": "37.3.1",
     "typescript": "~4.5.4",
     "vite": "^5.4.19"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.873.0",
-    "@libsql/client": "^0.15.12",
     "@tailwindcss/postcss": "^4.1.12",
     "alchemy": "^0.62.3",
-    "drizzle-kit": "^0.31.4",
+    "better-sqlite3": "^12.2.0",
     "drizzle-orm": "^0.44.4",
     "effect": "^3.17.9",
+    "electron-safe-storage": "^1.0.6",
     "electron-squirrel-startup": "^1.0.1",
     "postcss": "^8.5.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "tailwindcss": "^4.1.12"
   }
 }

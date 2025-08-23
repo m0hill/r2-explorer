@@ -1,11 +1,20 @@
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3'
+import { eq } from 'drizzle-orm'
+import { Effect } from 'effect'
+import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import started from 'electron-squirrel-startup'
+import { db } from '@/main/db'
+import { connections } from '@/main/db/schema'
+import type { AddConnectionData } from '@/preload'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit()
 }
+
+// Global state for active S3 client
+let _s3Client: S3Client | null = null
 
 const createWindow = () => {
   // Create the browser window.
@@ -14,6 +23,8 @@ const createWindow = () => {
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   })
 
@@ -50,5 +61,120 @@ app.on('activate', () => {
   }
 })
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+// IPC Handlers
+ipcMain.handle('connections:get', () =>
+  Effect.tryPromise({
+    try: () =>
+      db
+        .select({
+          id: connections.id,
+          name: connections.name,
+          accountId: connections.accountId,
+          accessKeyId: connections.accessKeyId,
+        })
+        .from(connections),
+    catch: error => {
+      console.error('Error fetching connections:', error)
+      return new Error('Failed to fetch connections')
+    },
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed([])),
+    Effect.runPromise
+  )
+)
+
+ipcMain.handle('connections:add', (_, data: AddConnectionData) =>
+  Effect.gen(function* () {
+    if (!safeStorage.isEncryptionAvailable()) {
+      return yield* Effect.fail(new Error('Encryption not available'))
+    }
+
+    const secretAccessKeyEncrypted = safeStorage.encryptString(data.secretAccessKey)
+
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        db
+          .insert(connections)
+          .values({
+            name: data.name,
+            accountId: data.accountId,
+            accessKeyId: data.accessKeyId,
+            secretAccessKeyEncrypted,
+          })
+          .returning({ id: connections.id }),
+      catch: error => {
+        console.error('Error adding connection:', error)
+        return new Error('Failed to add connection')
+      },
+    })
+
+    return result[0].id
+  }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle('connections:delete', (_, id: number) =>
+  Effect.tryPromise({
+    try: () => db.delete(connections).where(eq(connections.id, id)),
+    catch: error => {
+      console.error('Error deleting connection:', error)
+      return new Error('Failed to delete connection')
+    },
+  }).pipe(
+    Effect.map(() => true),
+    Effect.runPromise
+  )
+)
+
+ipcMain.handle('r2:connect', (_, id: number) =>
+  Effect.gen(function* () {
+    const connectionResults = yield* Effect.tryPromise({
+      try: () => db.select().from(connections).where(eq(connections.id, id)).limit(1),
+      catch: error => {
+        console.error('Error fetching connection:', error)
+        return new Error('Failed to fetch connection')
+      },
+    })
+
+    if (connectionResults.length === 0) {
+      yield* Effect.fail(new Error('Connection not found'))
+    }
+
+    if (!safeStorage.isEncryptionAvailable()) {
+      yield* Effect.fail(new Error('Encryption not available'))
+    }
+
+    const { accountId, accessKeyId, secretAccessKeyEncrypted } = connectionResults[0]
+    const secretAccessKey = safeStorage.decryptString(secretAccessKeyEncrypted as Buffer)
+
+    const client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    })
+
+    yield* Effect.tryPromise({
+      try: () => client.send(new ListBucketsCommand({})),
+      catch: error => {
+        console.error('Error connecting to R2:', error)
+        _s3Client = null
+        return new Error(
+          `R2 connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      },
+    })
+
+    _s3Client = client
+    return { success: true }
+  }).pipe(
+    Effect.catchAll(error =>
+      Effect.succeed({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    ),
+    Effect.runPromise
+  )
+)
