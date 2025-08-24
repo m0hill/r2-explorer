@@ -13,6 +13,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
   const [prefix, setPrefix] = useState('')
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [actioningObjects, setActioningObjects] = useState<Set<string>>(new Set())
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
 
   const [sharingObject, setSharingObject] = useState<R2Object | null>(null)
   const [isCreateFolderModalOpen, setCreateFolderModalOpen] = useState(false)
@@ -73,8 +74,54 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     },
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (keys: string[]) => window.api.deleteObjects({ bucketName, keys }),
+    onSuccess: () => {
+      setSelectedKeys(new Set())
+      queryClient.invalidateQueries({ queryKey: ['objects', bucketName, prefix] })
+    },
+  })
+
   const handleShareClick = (object: R2Object) => {
     setSharingObject(object)
+  }
+
+  const handleSelectionToggle = (key: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    const allKeys = [
+      ...(data?.folders?.map(folder => folder) || []),
+      ...(data?.objects?.map(object => object.key) || []),
+    ]
+
+    const allSelected = allKeys.every(key => selectedKeys.has(key))
+
+    if (allSelected) {
+      setSelectedKeys(new Set())
+    } else {
+      setSelectedKeys(new Set(allKeys))
+    }
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedKeys.size === 0) return
+
+    const selectedItems = Array.from(selectedKeys)
+    const message = `Are you sure you want to delete ${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''}?`
+
+    if (window.confirm(message)) {
+      bulkDeleteMutation.mutate(selectedItems)
+    }
   }
 
   useEffect(() => {
@@ -202,14 +249,80 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
         </div>
       </div>
 
+      {/* Action Toolbar */}
+      {selectedKeys.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <p className="text-sm font-medium text-blue-900">
+                {selectedKeys.size} item{selectedKeys.size > 1 ? 's' : ''} selected
+              </p>
+              <button
+                onClick={() => setSelectedKeys(new Set())}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Clear selection
+              </button>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteMutation.isPending}
+                className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md shadow-sm text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkDeleteMutation.isPending ? (
+                  <>
+                    <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-red-400 border-t-transparent rounded-full"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="-ml-1 mr-2 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    Delete ({selectedKeys.size})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Objects List */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Contents</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {(data?.folders?.length || 0) + (data?.objects?.length || 0)} items
-            </p>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={
+                  data &&
+                  (data.folders.length > 0 || data.objects.length > 0) &&
+                  [...(data.folders || []), ...(data.objects?.map(obj => obj.key) || [])].every(
+                    key => selectedKeys.has(key)
+                  )
+                }
+                onChange={handleSelectAll}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Contents</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {(data?.folders?.length || 0) + (data?.objects?.length || 0)} items
+              </p>
+            </div>
           </div>
           <div className="flex space-x-2">
             <button
@@ -313,21 +426,31 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
 
           {/* Folders */}
           {data?.folders?.map(folder => (
-            <div
-              key={folder}
-              className="px-6 py-4 flex items-center cursor-pointer hover:bg-gray-50"
-              onClick={() => handleFolderClick(folder)}
-            >
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                </svg>
+            <div key={folder} className="px-6 py-4 flex items-center hover:bg-gray-50">
+              <div className="flex-shrink-0 mr-3">
+                <input
+                  type="checkbox"
+                  checked={selectedKeys.has(folder)}
+                  onChange={() => handleSelectionToggle(folder)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  onClick={e => e.stopPropagation()}
+                />
               </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {folder.replace(prefix, '').replace('/', '')}
-                </p>
-                <p className="text-sm text-gray-500">Folder</p>
+              <div
+                className="flex items-center flex-1 cursor-pointer"
+                onClick={() => handleFolderClick(folder)}
+              >
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {folder.replace(prefix, '').replace('/', '')}
+                  </p>
+                  <p className="text-sm text-gray-500">Folder</p>
+                </div>
               </div>
             </div>
           ))}
@@ -340,6 +463,14 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
 
             return (
               <div key={object.key} className="px-6 py-4 flex items-center">
+                <div className="flex-shrink-0 mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.has(object.key)}
+                    onChange={() => handleSelectionToggle(object.key)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path

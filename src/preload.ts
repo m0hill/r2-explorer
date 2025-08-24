@@ -61,6 +61,11 @@ const api = {
     ipcRenderer.invoke('r2:download-object', params),
   deleteObject: (params: { bucketName: string; key: string }): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('r2:delete-object', params),
+  deleteObjects: (params: {
+    bucketName: string
+    keys: string[]
+  }): Promise<{ success: boolean; deletedCount: number }> =>
+    ipcRenderer.invoke('r2:delete-objects', params),
   getPresignedUrl: (params: {
     bucketName: string
     key: string

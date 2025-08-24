@@ -4,6 +4,7 @@ import {
   CreateBucketCommand,
   DeleteBucketCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   ListBucketsCommand,
   ListObjectsV2Command,
@@ -562,5 +563,51 @@ ipcMain.handle(
         url,
         expiresAt,
       }
+    }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'r2:delete-objects',
+  (_, { bucketName, keys }: { bucketName: string; keys: string[] }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      if (keys.length === 0) {
+        return { success: true, deletedCount: 0 }
+      }
+
+      const BATCH_SIZE = 1000
+      let deletedCount = 0
+
+      for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+        const batch = keys.slice(i, i + BATCH_SIZE)
+
+        const command = new DeleteObjectsCommand({
+          Bucket: bucketName,
+          Delete: {
+            Objects: batch.map(key => ({ Key: key })),
+          },
+        })
+
+        const response = yield* Effect.tryPromise({
+          try: () => _s3Client!.send(command),
+          catch: error => {
+            console.error('Error deleting objects batch:', error)
+            return new Error(
+              `Failed to delete objects batch: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          },
+        })
+
+        deletedCount += response.Deleted?.length || 0
+
+        if (response.Errors && response.Errors.length > 0) {
+          console.warn('Some objects failed to delete:', response.Errors)
+        }
+      }
+
+      return { success: true, deletedCount }
     }).pipe(Effect.runPromise)
 )
