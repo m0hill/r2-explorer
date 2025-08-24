@@ -28,7 +28,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
   })
 
   const uploadMutation = useMutation({
-    mutationFn: () => window.api.uploadObject({ bucketName, prefix }),
+    mutationFn: () => window.api.uploadObjects({ bucketName, prefix }),
     onSuccess: result => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ['objects', bucketName, prefix] })

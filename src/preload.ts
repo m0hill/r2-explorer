@@ -49,7 +49,7 @@ const api = {
     ipcRenderer.invoke('r2:delete-bucket', bucketName),
   listObjects: (params: { bucketName: string; prefix?: string }): Promise<ListObjectsResult> =>
     ipcRenderer.invoke('r2:list-objects', params),
-  uploadObject: (params: {
+  uploadObjects: (params: {
     bucketName: string
     prefix?: string
   }): Promise<{ success: boolean; cancelled?: boolean }> =>

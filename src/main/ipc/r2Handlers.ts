@@ -135,9 +135,10 @@ export function registerR2Handlers() {
           yield* Effect.fail(new Error('Not connected to R2'))
         }
 
+        // 1. Allow multiple file selections in the dialog
         const result = yield* Effect.tryPromise(() =>
           dialog.showOpenDialog({
-            properties: ['openFile'],
+            properties: ['openFile', 'multiSelections'],
           })
         )
 
@@ -145,29 +146,37 @@ export function registerR2Handlers() {
           return { success: false, cancelled: true }
         }
 
-        const filePath = result.filePaths[0]!
-        const fileName = basename(filePath)
-        const key = prefix ? `${prefix}${fileName}` : fileName
+        // 2. Create an array of upload Effects for each selected file
+        const uploadEffects = result.filePaths.map(filePath => {
+          const fileName = basename(filePath)
+          const key = prefix ? `${prefix}${fileName}` : fileName
+          const fileStream = createReadStream(filePath)
 
-        const fileStream = createReadStream(filePath)
+          const upload = new Upload({
+            client: appState.s3Client!,
+            params: {
+              Bucket: bucketName,
+              Key: key,
+              Body: fileStream,
+            },
+          })
 
-        const upload = new Upload({
-          client: appState.s3Client!,
-          params: {
-            Bucket: bucketName,
-            Key: key,
-            Body: fileStream,
-          },
+          // The progress handler remains the same and will emit events for each file's key
+          upload.on('httpUploadProgress', progress => {
+            if (progress.loaded && progress.total) {
+              const percentage = Math.round((progress.loaded / progress.total) * 100)
+              appState.mainWindow?.webContents.send('upload-progress', {
+                key,
+                progress: percentage,
+              })
+            }
+          })
+
+          return Effect.tryPromise(() => upload.done())
         })
 
-        upload.on('httpUploadProgress', progress => {
-          if (progress.loaded && progress.total) {
-            const percentage = Math.round((progress.loaded / progress.total) * 100)
-            appState.mainWindow?.webContents.send('upload-progress', { key, progress: percentage })
-          }
-        })
-
-        yield* Effect.tryPromise(() => upload.done())
+        // 3. Run all upload effects concurrently
+        yield* Effect.all(uploadEffects, { concurrency: 10 })
 
         return { success: true }
       }).pipe(
