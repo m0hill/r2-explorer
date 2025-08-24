@@ -10,12 +10,13 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
-import { eq } from 'drizzle-orm'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { and, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron'
 import started from 'electron-squirrel-startup'
 import { db } from '@/main/db'
-import { connections } from '@/main/db/schema'
+import { connections, presignedUrls } from '@/main/db/schema'
 import type { AddConnectionData } from '@/preload'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -432,4 +433,107 @@ ipcMain.handle('r2:delete-object', (_, { bucketName, key }: { bucketName: string
 
     return { success: true }
   }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'urls:get-for-object',
+  (_, { bucketName, key }: { bucketName: string; key: string }) =>
+    Effect.gen(function* () {
+      const results = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select()
+            .from(presignedUrls)
+            .where(and(eq(presignedUrls.bucketName, bucketName), eq(presignedUrls.objectKey, key)))
+            .limit(1),
+        catch: error => {
+          console.error('Error getting presigned URL:', error)
+          return new Error('Failed to get presigned URL')
+        },
+      })
+
+      if (results.length === 0) {
+        return null
+      }
+
+      const result = results[0]
+
+      // Check if URL has expired
+      const expiresAt = new Date(result.expiresAt)
+      if (expiresAt <= new Date()) {
+        // Delete expired entry
+        yield* Effect.tryPromise({
+          try: () => db.delete(presignedUrls).where(eq(presignedUrls.id, result.id)),
+          catch: error => {
+            console.error('Error deleting expired URL:', error)
+            return new Error('Failed to delete expired URL')
+          },
+        })
+        return null
+      }
+
+      return {
+        id: result.id,
+        url: result.url,
+        expiresAt: result.expiresAt,
+      }
+    }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'urls:create-for-object',
+  (_, { bucketName, key, expiresIn }: { bucketName: string; key: string; expiresIn: number }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      const command = new GetObjectCommand({ Bucket: bucketName, Key: key })
+
+      const url = yield* Effect.tryPromise({
+        try: () => getSignedUrl(_s3Client!, command, { expiresIn }),
+        catch: error => {
+          console.error('Error creating presigned URL:', error)
+          return new Error('Failed to create presigned URL')
+        },
+      })
+
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
+
+      // Delete any existing URL for this object
+      yield* Effect.tryPromise({
+        try: () =>
+          db
+            .delete(presignedUrls)
+            .where(and(eq(presignedUrls.bucketName, bucketName), eq(presignedUrls.objectKey, key))),
+        catch: error => {
+          console.error('Error deleting old URL:', error)
+          return new Error('Failed to delete old URL')
+        },
+      })
+
+      // Insert new URL
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .insert(presignedUrls)
+            .values({
+              objectKey: key,
+              bucketName,
+              url,
+              expiresAt,
+            })
+            .returning({ id: presignedUrls.id }),
+        catch: error => {
+          console.error('Error saving presigned URL:', error)
+          return new Error('Failed to save presigned URL')
+        },
+      })
+
+      return {
+        id: result[0].id,
+        url,
+        expiresAt,
+      }
+    }).pipe(Effect.runPromise)
 )

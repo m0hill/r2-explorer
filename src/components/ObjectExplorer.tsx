@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect, useState } from 'react'
+import type { R2Object } from '@/preload'
+import ShareModal from './ShareModal'
 
 interface ObjectExplorerProps {
   bucketName: string
@@ -10,6 +12,8 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
   const [prefix, setPrefix] = useState('')
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const [actioningObjects, setActioningObjects] = useState<Set<string>>(new Set())
+
+  const [sharingObject, setSharingObject] = useState<R2Object | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError, error } = useQuery({
@@ -56,6 +60,10 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
       })
     },
   })
+
+  const handleShareClick = (object: R2Object) => {
+    setSharingObject(object)
+  }
 
   useEffect(() => {
     const cleanup = window.api.onUploadProgress(({ key, progress }) => {
@@ -337,6 +345,13 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
                     <span className="ml-1">Download</span>
                   </button>
                   <button
+                    onClick={() => handleShareClick(object)}
+                    disabled={isActioning || isUploading}
+                    className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Share
+                  </button>
+                  <button
                     onClick={() => handleDelete(object.key)}
                     disabled={isActioning || isUploading}
                     className="inline-flex items-center px-2 py-1 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -388,6 +403,16 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
             )}
         </div>
       </div>
+
+      {/* Share Modal */}
+      {sharingObject && (
+        <ShareModal
+          isOpen={!!sharingObject}
+          onClose={() => setSharingObject(null)}
+          bucketName={bucketName}
+          objectKey={sharingObject.key}
+        />
+      )}
     </div>
   )
 }

@@ -30,6 +30,12 @@ export type ListObjectsResult = {
   objects: R2Object[]
 }
 
+export type PresignedUrlData = {
+  id: number
+  url: string
+  expiresAt: string
+}
+
 const api = {
   getConnections: (): Promise<ConnectionDisplay[]> => ipcRenderer.invoke('connections:get'),
   addConnection: (data: AddConnectionData): Promise<number> =>
@@ -55,11 +61,23 @@ const api = {
     ipcRenderer.invoke('r2:download-object', params),
   deleteObject: (params: { bucketName: string; key: string }): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('r2:delete-object', params),
+  getPresignedUrl: (params: {
+    bucketName: string
+    key: string
+  }): Promise<PresignedUrlData | null> => ipcRenderer.invoke('urls:get-for-object', params),
+  createPresignedUrl: (params: {
+    bucketName: string
+    key: string
+    expiresIn: number
+  }): Promise<PresignedUrlData> => ipcRenderer.invoke('urls:create-for-object', params),
+
   onUploadProgress: (callback: (data: { key: string; progress: number }) => void) => {
     const handler = (_event: unknown, data: { key: string; progress: number }) => callback(data)
     ipcRenderer.on('upload-progress', handler)
     // Return a cleanup function
-    return () => ipcRenderer.removeListener('upload-progress', handler)
+    return () => {
+      ipcRenderer.removeListener('upload-progress', handler)
+    }
   },
 }
 

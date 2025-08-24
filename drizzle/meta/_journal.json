@@ -8,6 +8,13 @@
       "when": 1755982554323,
       "tag": "0000_cheerful_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1755992180300,
+      "tag": "0001_normal_rage",
+      "breakpoints": true
     }
   ]
 }
