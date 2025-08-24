@@ -7,6 +7,10 @@ interface ActionToolbarProps {
   bulkDeleteMutation: {
     isPending: boolean
   }
+  onBulkDownload: () => void
+  bulkDownloadMutation: {
+    isPending: boolean
+  }
 }
 
 const ActionToolbar: React.FC<ActionToolbarProps> = ({
@@ -14,6 +18,8 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
   onClearSelection,
   onBulkDelete,
   bulkDeleteMutation,
+  onBulkDownload,
+  bulkDownloadMutation,
 }) => {
   if (selectedKeysCount === 0) return null
 
@@ -33,8 +39,37 @@ const ActionToolbar: React.FC<ActionToolbarProps> = ({
         </div>
         <div className="flex space-x-2">
           <button
+            onClick={onBulkDownload}
+            disabled={bulkDeleteMutation.isPending || bulkDownloadMutation.isPending}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bulkDownloadMutation.isPending ? (
+              <>
+                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
+                Downloading...
+              </>
+            ) : (
+              <>
+                <svg
+                  className="-ml-1 mr-2 h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Download ({selectedKeysCount})
+              </>
+            )}
+          </button>
+          <button
             onClick={onBulkDelete}
-            disabled={bulkDeleteMutation.isPending}
+            disabled={bulkDeleteMutation.isPending || bulkDownloadMutation.isPending}
             className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md shadow-sm text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bulkDeleteMutation.isPending ? (

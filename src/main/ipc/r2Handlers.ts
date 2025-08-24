@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from 'node:fs'
-import { basename } from 'node:path'
+import { basename, join } from 'node:path'
 import {
   CreateBucketCommand,
   DeleteBucketCommand,
@@ -445,6 +445,73 @@ export function registerR2Handlers() {
           Effect.fail(
             new Error(
               `Failed to delete objects: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          )
+        ),
+        Effect.runPromise
+      )
+  )
+
+  ipcMain.handle(
+    'r2:download-objects',
+    (_, { bucketName, keys }: { bucketName: string; keys: string[] }) =>
+      Effect.gen(function* () {
+        if (!appState.s3Client) {
+          yield* Effect.fail(new Error('Not connected to R2'))
+        }
+
+        const result = yield* Effect.tryPromise(() =>
+          dialog.showOpenDialog({
+            properties: ['openDirectory', 'createDirectory'],
+          })
+        )
+
+        if (result.canceled || !result.filePaths.length) {
+          return { success: false, cancelled: true }
+        }
+
+        const destinationDir = result.filePaths[0]!
+
+        const fileKeys = keys.filter(key => !key.endsWith('/'))
+
+        if (fileKeys.length === 0) {
+          return { success: true }
+        }
+
+        const downloadEffects = fileKeys.map(key =>
+          Effect.gen(function* () {
+            const response = yield* Effect.tryPromise(() =>
+              appState.s3Client!.send(new GetObjectCommand({ Bucket: bucketName, Key: key }))
+            )
+
+            if (!response.Body) {
+              yield* Effect.fail(new Error(`No body in response for key: ${key}`))
+            }
+
+            const filePath = join(destinationDir, basename(key))
+            const writeStream = createWriteStream(filePath)
+
+            yield* Effect.tryPromise(
+              () =>
+                new Promise<void>((resolve, reject) => {
+                  const body = response.Body as NodeJS.ReadableStream
+                  body.pipe(writeStream)
+                  body.on('error', reject)
+                  writeStream.on('error', reject)
+                  writeStream.on('close', resolve)
+                })
+            )
+          })
+        )
+
+        yield* Effect.all(downloadEffects, { concurrency: 5 })
+
+        return { success: true }
+      }).pipe(
+        Effect.catchAll(error =>
+          Effect.fail(
+            new Error(
+              `Failed to download objects: ${error instanceof Error ? error.message : 'Unknown error'}`
             )
           )
         ),

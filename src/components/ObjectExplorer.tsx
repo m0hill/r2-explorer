@@ -85,6 +85,10 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     },
   })
 
+  const bulkDownloadMutation = useMutation({
+    mutationFn: (keys: string[]) => window.api.downloadObjects({ bucketName, keys }),
+  })
+
   const handleShareClick = (object: R2Object) => {
     setSharingObject(object)
   }
@@ -125,6 +129,13 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     if (window.confirm(message)) {
       bulkDeleteMutation.mutate(selectedItems)
     }
+  }
+
+  const handleBulkDownload = () => {
+    if (selectedKeys.size === 0) return
+
+    const selectedItems = Array.from(selectedKeys)
+    bulkDownloadMutation.mutate(selectedItems)
   }
 
   useEffect(() => {
@@ -242,6 +253,8 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
         onClearSelection={() => setSelectedKeys(new Set())}
         onBulkDelete={handleBulkDelete}
         bulkDeleteMutation={bulkDeleteMutation}
+        onBulkDownload={handleBulkDownload}
+        bulkDownloadMutation={bulkDownloadMutation}
       />
 
       <div className="bg-white rounded-lg shadow">
