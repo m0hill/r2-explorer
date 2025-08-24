@@ -7,6 +7,7 @@ import {
   GetObjectCommand,
   ListBucketsCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -433,6 +434,32 @@ ipcMain.handle('r2:delete-object', (_, { bucketName, key }: { bucketName: string
 
     return { success: true }
   }).pipe(Effect.runPromise)
+)
+
+ipcMain.handle(
+  'r2:create-folder',
+  (_, { bucketName, folderPath }: { bucketName: string; folderPath: string }) =>
+    Effect.gen(function* () {
+      if (!_s3Client) {
+        yield* Effect.fail(new Error('Not connected to R2'))
+      }
+
+      const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: folderPath,
+        Body: '', // 0-byte body
+      })
+
+      yield* Effect.tryPromise({
+        try: () => _s3Client!.send(command),
+        catch: error => {
+          console.error('Error creating folder:', error)
+          return new Error('Failed to create folder')
+        },
+      })
+
+      return { success: true }
+    }).pipe(Effect.runPromise)
 )
 
 ipcMain.handle(

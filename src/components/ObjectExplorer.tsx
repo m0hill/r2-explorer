@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect, useState } from 'react'
 import type { R2Object } from '@/preload'
+import CreateFolderModal from './CreateFolderModal'
 import ShareModal from './ShareModal'
 
 interface ObjectExplorerProps {
@@ -14,6 +15,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
   const [actioningObjects, setActioningObjects] = useState<Set<string>>(new Set())
 
   const [sharingObject, setSharingObject] = useState<R2Object | null>(null)
+  const [isCreateFolderModalOpen, setCreateFolderModalOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError, error } = useQuery({
@@ -61,6 +63,16 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     },
   })
 
+  const createFolderMutation = useMutation({
+    mutationFn: (folderPath: string) => window.api.createFolder({ bucketName, folderPath }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['objects', bucketName, prefix] })
+    },
+    onError: error => {
+      alert(`Failed to create folder: ${error.message}`)
+    },
+  })
+
   const handleShareClick = (object: R2Object) => {
     setSharingObject(object)
   }
@@ -82,6 +94,18 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
 
   const handleUpload = () => {
     uploadMutation.mutate()
+  }
+
+  const handleCreateFolder = () => {
+    setCreateFolderModalOpen(true)
+  }
+
+  const handleConfirmCreateFolder = (folderName: string) => {
+    if (folderName) {
+      const cleanFolderName = folderName.replace(/\/$/, '')
+      const folderPath = `${prefix}${cleanFolderName}/`
+      createFolderMutation.mutate(folderPath)
+    }
   }
 
   const handleDownload = (key: string) => {
@@ -187,35 +211,66 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
               {(data?.folders?.length || 0) + (data?.objects?.length || 0)} items
             </p>
           </div>
-          <button
-            onClick={handleUpload}
-            disabled={uploadMutation.isPending}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploadMutation.isPending ? (
-              <>
-                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                Uploading...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="-ml-1 mr-2 h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                Upload File
-              </>
-            )}
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleCreateFolder}
+              disabled={createFolderMutation.isPending}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {createFolderMutation.isPending ? (
+                <>
+                  <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="-ml-1 mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Create Folder
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={uploadMutation.isPending}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploadMutation.isPending ? (
+                <>
+                  <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="-ml-1 mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  Upload File
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="divide-y divide-gray-200">
@@ -403,6 +458,13 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
             )}
         </div>
       </div>
+
+      {/* Create Folder Modal */}
+      <CreateFolderModal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setCreateFolderModalOpen(false)}
+        onCreate={handleConfirmCreateFolder}
+      />
 
       {/* Share Modal */}
       {sharingObject && (

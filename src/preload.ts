@@ -70,6 +70,10 @@ const api = {
     key: string
     expiresIn: number
   }): Promise<PresignedUrlData> => ipcRenderer.invoke('urls:create-for-object', params),
+  createFolder: (params: {
+    bucketName: string
+    folderPath: string
+  }): Promise<{ success: boolean }> => ipcRenderer.invoke('r2:create-folder', params),
 
   onUploadProgress: (callback: (data: { key: string; progress: number }) => void) => {
     const handler = (_event: unknown, data: { key: string; progress: number }) => callback(data)
