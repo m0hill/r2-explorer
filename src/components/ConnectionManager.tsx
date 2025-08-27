@@ -1,5 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { AddConnectionData, ConnectionDisplay } from '../preload'
 
 interface ConnectionManagerProps {
@@ -108,237 +120,219 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <h1 className="text-2xl font-bold text-gray-900">R2 Explorer - Connection Manager</h1>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              {showForm ? 'Cancel' : 'Add Connection'}
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Card className="rounded-none border-0 border-b">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-2xl">R2 Explorer - Connection Manager</CardTitle>
+            <Dialog open={showForm} onOpenChange={setShowForm}>
+              <DialogTrigger asChild>
+                <Button>Add Connection</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingConnection ? 'Edit Connection' : 'Add New Connection'}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Connection Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="My R2 Connection"
+                        required
+                      />
+                    </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {connectionsError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">
-              {connectionsError?.message || 'Failed to load connections'}
-            </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="accountId">Account ID</Label>
+                      <Input
+                        id="accountId"
+                        name="accountId"
+                        value={formData.accountId}
+                        onChange={handleInputChange}
+                        placeholder="your-account-id"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="accessKeyId">Access Key ID</Label>
+                      <Input
+                        id="accessKeyId"
+                        name="accessKeyId"
+                        value={formData.accessKeyId}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="secretAccessKey">Secret Access Key</Label>
+                      <Input
+                        id="secretAccessKey"
+                        name="secretAccessKey"
+                        type="password"
+                        value={formData.secretAccessKey}
+                        onChange={handleInputChange}
+                        placeholder={editingConnection ? 'Re-enter for security' : ''}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="apiToken">Cloudflare API Token (optional)</Label>
+                      <Input
+                        id="apiToken"
+                        name="apiToken"
+                        type="password"
+                        value={formData.apiToken ?? ''}
+                        onChange={handleInputChange}
+                        placeholder={
+                          editingConnection
+                            ? 'Re-enter for security (optional)'
+                            : 'Used to provision share Worker automatically'
+                        }
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={resetForm}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        addConnectionMutation.isPending || updateConnectionMutation.isPending
+                      }
+                    >
+                      {addConnectionMutation.isPending || updateConnectionMutation.isPending
+                        ? editingConnection
+                          ? 'Updating...'
+                          : 'Adding...'
+                        : editingConnection
+                          ? 'Update Connection'
+                          : 'Add Connection'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
+        </CardHeader>
+      </Card>
+
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        {connectionsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {connectionsError?.message || 'Failed to load connections'}
+            </AlertDescription>
+          </Alert>
         )}
 
         {addConnectionMutation.isError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">
+          <Alert variant="destructive">
+            <AlertDescription>
               {addConnectionMutation.error?.message || 'Failed to add connection'}
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {updateConnectionMutation.isError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">
+          <Alert variant="destructive">
+            <AlertDescription>
               {updateConnectionMutation.error?.message || 'Failed to update connection'}
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {connectMutation.isError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">
+          <Alert variant="destructive">
+            <AlertDescription>
               {connectMutation.error?.message || 'Connection failed'}
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {deleteConnectionMutation.isError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700 text-sm">
+          <Alert variant="destructive">
+            <AlertDescription>
               {deleteConnectionMutation.error?.message || 'Failed to delete connection'}
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
-        {showForm && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">
-                {editingConnection ? 'Edit Connection' : 'Add New Connection'}
-              </h2>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                    Connection Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="My R2 Connection"
-                  />
+        <Card>
+          <CardHeader>
+            <CardTitle>Saved Connections</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {connectionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-muted-foreground">Loading connections...</p>
                 </div>
-
-                <div>
-                  <label htmlFor="accountId" className="block text-sm font-medium text-gray-700">
-                    Account ID
-                  </label>
-                  <input
-                    type="text"
-                    id="accountId"
-                    name="accountId"
-                    value={formData.accountId}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="your-account-id"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="accessKeyId" className="block text-sm font-medium text-gray-700">
-                    Access Key ID
-                  </label>
-                  <input
-                    type="text"
-                    id="accessKeyId"
-                    name="accessKeyId"
-                    value={formData.accessKeyId}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="secretAccessKey"
-                    className="block text-sm font-medium text-gray-700"
+              </div>
+            ) : connections?.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  No connections saved yet. Click "Add Connection" to get started.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {connections?.map(connection => (
+                  <div
+                    key={connection.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
                   >
-                    Secret Access Key
-                  </label>
-                  <input
-                    type="password"
-                    id="secretAccessKey"
-                    name="secretAccessKey"
-                    value={formData.secretAccessKey}
-                    onChange={handleInputChange}
-                    required
-                    placeholder={editingConnection ? 'Re-enter for security' : ''}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label htmlFor="apiToken" className="block text-sm font-medium text-gray-700">
-                    Cloudflare API Token (optional)
-                  </label>
-                  <input
-                    type="password"
-                    id="apiToken"
-                    name="apiToken"
-                    value={formData.apiToken ?? ''}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder={
-                      editingConnection
-                        ? 'Re-enter for security (optional)'
-                        : 'Used to provision share Worker automatically'
-                    }
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addConnectionMutation.isPending || updateConnectionMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  {addConnectionMutation.isPending || updateConnectionMutation.isPending
-                    ? editingConnection
-                      ? 'Updating...'
-                      : 'Adding...'
-                    : editingConnection
-                      ? 'Update Connection'
-                      : 'Add Connection'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Saved Connections</h2>
-          </div>
-
-          {connectionsLoading ? (
-            <div className="p-6 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              Loading connections...
-            </div>
-          ) : connections?.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No connections saved yet. Click "Add Connection" to get started.
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {connections?.map(connection => (
-                <div key={connection.id} className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">{connection.name}</h3>
-                      <p className="text-sm text-gray-500">Account ID: {connection.accountId}</p>
-                      <p className="text-sm text-gray-500">Access Key: {connection.accessKeyId}</p>
+                    <div className="space-y-1">
+                      <h3 className="font-medium">{connection.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Account ID: {connection.accountId}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Access Key: {connection.accessKeyId}
+                      </p>
                     </div>
-                    <div className="flex space-x-3">
-                      <button
+                    <div className="flex space-x-2">
+                      <Button
                         onClick={() => handleConnect(connection.id)}
                         disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        variant="default"
                       >
                         {connectMutation.isPending ? 'Connecting...' : 'Connect'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleEdit(connection)}
                         disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        variant="outline"
                       >
                         Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleDelete(connection.id)}
                         disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
-                        className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                        variant="destructive"
                       >
                         {deleteConnectionMutation.isPending ? 'Deleting...' : 'Delete'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
