@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import type { R2Object } from '@/preload'
 import ActionToolbar from './ActionToolbar'
 import CreateFolderModal from './CreateFolderModal'
+import InlineFolderShares from './InlineFolderShares'
 import ObjectHeader from './ObjectHeader'
 import ObjectList from './ObjectList'
 import ShareFolderModal from './ShareFolderModal'
@@ -163,6 +164,10 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     setCreateFolderModalOpen(true)
   }
 
+  const handleShareCurrentFolder = () => {
+    if (prefix) setSharingFolderPrefix(prefix)
+  }
+
   const handleConfirmCreateFolder = (folderName: string) => {
     if (folderName) {
       const cleanFolderName = folderName.replace(/\/$/, '')
@@ -253,6 +258,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
         folderCount={data?.folders?.length || 0}
         onSelectAll={handleSelectAll}
         isAllSelected={isAllSelected}
+        onShareCurrentFolder={handleShareCurrentFolder}
       />
 
       <ActionToolbar
@@ -281,6 +287,13 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
           deleteMutation={deleteMutation}
         />
       </div>
+
+      {/* Inline Shares list for this folder context */}
+      <InlineFolderShares
+        bucketName={bucketName}
+        currentPrefix={prefix}
+        onShareCurrent={handleShareCurrentFolder}
+      />
 
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

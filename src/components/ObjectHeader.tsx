@@ -14,6 +14,7 @@ interface ObjectHeaderProps {
 
   onSelectAll: () => void
   isAllSelected: boolean
+  onShareCurrentFolder?: () => void
 }
 
 const ObjectHeader: React.FC<ObjectHeaderProps> = ({
@@ -29,6 +30,7 @@ const ObjectHeader: React.FC<ObjectHeaderProps> = ({
   folderCount,
   onSelectAll,
   isAllSelected,
+  onShareCurrentFolder,
 }) => {
   const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : []
   const totalItems = objectCount + folderCount
@@ -99,6 +101,29 @@ const ObjectHeader: React.FC<ObjectHeaderProps> = ({
                   Create Folder
                 </>
               )}
+            </button>
+            <button
+              onClick={onShareCurrentFolder}
+              disabled={!onShareCurrentFolder || prefix === ''}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                prefix === '' ? 'Open a folder to share it' : 'Create a share link for this folder'
+              }
+            >
+              <svg
+                className="-ml-1 mr-2 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7H7v6m0 0h6m-6 0l8 8M21 3l-6 6"
+                />
+              </svg>
+              Share This Folder
             </button>
             <button
               onClick={onUpload}

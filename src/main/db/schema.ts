@@ -23,8 +23,24 @@ export const presignedUrls = sqliteTable('presigned_urls', {
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const folderShares = sqliteTable('folder_shares', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  connectionId: integer('connection_id').notNull(),
+  shareId: text('share_id').notNull(),
+  bucketName: text('bucket_name').notNull(),
+  prefix: text('prefix').notNull(),
+  url: text('url').notNull(),
+  expiresAt: text('expires_at').notNull(),
+  // Use 0/1 under the hood; typed as boolean in TS
+  hasPin: integer('has_pin', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
 export type Connection = typeof connections.$inferSelect
 export type NewConnection = typeof connections.$inferInsert
 
 export type PresignedUrl = typeof presignedUrls.$inferSelect
 export type NewPresignedUrl = typeof presignedUrls.$inferInsert
+
+export type FolderShare = typeof folderShares.$inferSelect
+export type NewFolderShare = typeof folderShares.$inferInsert

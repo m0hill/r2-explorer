@@ -46,6 +46,17 @@ export type FolderShareResult = {
   expiresAt: string
 }
 
+export type FolderShareRecord = {
+  id: number
+  connectionId: number
+  shareId: string
+  bucketName: string
+  prefix: string
+  url: string
+  expiresAt: string
+  hasPin: boolean
+}
+
 const api = {
   getConnections: (): Promise<ConnectionDisplay[]> => ipcRenderer.invoke('connections:get'),
   addConnection: (data: AddConnectionData): Promise<number> =>
@@ -103,6 +114,9 @@ const api = {
     expiresIn: number
     pin?: string
   }): Promise<FolderShareResult> => ipcRenderer.invoke('folder-share:create', params),
+  listFolderShares: (): Promise<FolderShareRecord[]> => ipcRenderer.invoke('folder-share:list'),
+  revokeFolderShare: (params: { id: number }): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('folder-share:revoke', params),
 
   onUploadProgress: (callback: (data: { key: string; progress: number }) => void) => {
     const handler = (_event: unknown, data: { key: string; progress: number }) => callback(data)

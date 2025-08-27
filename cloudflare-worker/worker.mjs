@@ -33,7 +33,7 @@ function viewerHtml(shareId) {
   <div id="list"></div>
 </div>
 <script>
-  const shareId = ${JSON.stringify('')} + location.pathname.split('/').pop();
+  const shareId = ${JSON.stringify(shareId)};
   let path = new URL(location.href).searchParams.get('path') || '';
   function renderCrumbs() {
     const container = document.getElementById('crumbs');
@@ -140,12 +140,6 @@ async function hmacRaw(keyBytes, data) {
   )
   return crypto.subtle.sign('HMAC', key, typeof data === 'string' ? fromUtf8(data) : data)
 }
-function concatBytes(a, b) {
-  const out = new Uint8Array(a.byteLength + b.byteLength)
-  out.set(new Uint8Array(a), 0)
-  out.set(new Uint8Array(b), a.byteLength)
-  return out.buffer
-}
 
 // Share model and env types
 /**
@@ -187,6 +181,21 @@ async function handle(request, env) {
       expirationTtl: Number(expiresInSec),
     })
     return json({ id, url: `${origin}/s/${id}`, expiresAt })
+  }
+
+  // Admin: revoke share
+  const mAdminDel = pathname.match(/^\/admin\/shares\/([A-Za-z0-9_-]{6,})$/)
+  if (mAdminDel && request.method === 'DELETE') {
+    const token = request.headers.get('X-Admin-Token') || ''
+    if (token !== env.ADMIN_TOKEN) return new Response('unauthorized', { status: 401 })
+    const id = mAdminDel[1]
+    // Best-effort delete; idempotent
+    try {
+      await env.SHARES.delete(`share:${id}`)
+    } catch {
+      // ignore
+    }
+    return new Response(null, { status: 204 })
   }
 
   const m = pathname.match(/^\/s\/([A-Za-z0-9_-]{6,})/)

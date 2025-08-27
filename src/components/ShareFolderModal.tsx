@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
 
 const EXPIRATION_OPTIONS = [
@@ -20,6 +20,8 @@ const ShareFolderModal: React.FC<ShareFolderModalProps> = ({
   bucketName,
   folderPrefix,
 }) => {
+  const qc = useQueryClient()
+
   const [selectedExpiration, setSelectedExpiration] = useState(3600)
   const [pin, setPin] = useState('')
   const [copied, setCopied] = useState(false)
@@ -34,6 +36,9 @@ const ShareFolderModal: React.FC<ShareFolderModalProps> = ({
         pin: pin.trim() || undefined,
       })
       return result
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['folder-shares'] })
     },
   })
 
@@ -78,10 +83,12 @@ const ShareFolderModal: React.FC<ShareFolderModalProps> = ({
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                 <p className="text-sm text-yellow-800">
-                  Links cannot be revoked once created. Only share with trusted parties.
+                  You can revoke this share anytime from the "Active Shares" list. Only share with
+                  trusted parties.
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => onCopy(createMutation.data.url)}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
@@ -135,11 +142,13 @@ const ShareFolderModal: React.FC<ShareFolderModalProps> = ({
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                 <p className="text-sm text-yellow-800">
-                  Links cannot be revoked once created. Only share with trusted parties.
+                  You can revoke shares later from the "Active Shares" list. Only share with trusted
+                  parties.
                 </p>
               </div>
 
               <button
+                type="button"
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !validPin}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
