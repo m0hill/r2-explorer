@@ -11,6 +11,7 @@ interface ObjectListProps {
   actioningObjects: Set<string>
   selectedKeys: Set<string>
   onFolderClick: (folderPrefix: string) => void
+  onShareFolder: (folderPrefix: string) => void
   onSelectionToggle: (key: string) => void
   onDownload: (key: string) => void
   onShare: (object: R2Object) => void
@@ -32,6 +33,7 @@ const ObjectList: React.FC<ObjectListProps> = ({
   actioningObjects,
   selectedKeys,
   onFolderClick,
+  onShareFolder,
   onSelectionToggle,
   onDownload,
   onShare,
@@ -90,31 +92,44 @@ const ObjectList: React.FC<ObjectListProps> = ({
       })}
 
       {data?.folders?.map(folder => (
-        <div key={folder} className="px-6 py-4 flex items-center hover:bg-gray-50">
-          <div className="flex-shrink-0 mr-3">
-            <input
-              type="checkbox"
-              checked={selectedKeys.has(folder)}
-              onChange={() => onSelectionToggle(folder)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              onClick={e => e.stopPropagation()}
-            />
+        <div key={folder} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
+          <div className="flex items-center flex-1">
+            <div className="flex-shrink-0 mr-3">
+              <input
+                type="checkbox"
+                checked={selectedKeys.has(folder)}
+                onChange={() => onSelectionToggle(folder)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+            <div
+              className="flex items-center flex-1 cursor-pointer"
+              onClick={() => onFolderClick(folder)}
+            >
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  {folder.replace(prefix, '').replace('/', '')}
+                </p>
+                <p className="text-sm text-gray-500">Folder</p>
+              </div>
+            </div>
           </div>
-          <div
-            className="flex items-center flex-1 cursor-pointer"
-            onClick={() => onFolderClick(folder)}
-          >
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm font-medium text-gray-900">
-                {folder.replace(prefix, '').replace('/', '')}
-              </p>
-              <p className="text-sm text-gray-500">Folder</p>
-            </div>
+          <div className="ml-4">
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                onShareFolder(folder)
+              }}
+              className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Share
+            </button>
           </div>
         </div>
       ))}

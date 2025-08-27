@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
-import type { AddConnectionData } from '../preload'
+import type { AddConnectionData, ConnectionDisplay } from '../preload'
 
 interface ConnectionManagerProps {
   onConnectionSuccess: (connection: import('../preload').ConnectionDisplay) => void
@@ -8,11 +8,13 @@ interface ConnectionManagerProps {
 
 const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSuccess }) => {
   const [showForm, setShowForm] = useState(false)
+  const [editingConnection, setEditingConnection] = useState<ConnectionDisplay | null>(null)
   const [formData, setFormData] = useState<AddConnectionData>({
     name: '',
     accountId: '',
     accessKeyId: '',
     secretAccessKey: '',
+    apiToken: '',
   })
 
   const queryClient = useQueryClient()
@@ -30,8 +32,16 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
     mutationFn: (data: AddConnectionData) => window.api.addConnection(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connections'] })
-      setFormData({ name: '', accountId: '', accessKeyId: '', secretAccessKey: '' })
-      setShowForm(false)
+      resetForm()
+    },
+  })
+
+  const updateConnectionMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: AddConnectionData }) =>
+      window.api.updateConnection(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] })
+      resetForm()
     },
   })
 
@@ -56,7 +66,11 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    addConnectionMutation.mutate(formData)
+    if (editingConnection) {
+      updateConnectionMutation.mutate({ id: editingConnection.id, data: formData })
+    } else {
+      addConnectionMutation.mutate(formData)
+    }
   }
 
   const handleConnect = (id: number) => {
@@ -70,9 +84,27 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
     deleteConnectionMutation.mutate(id)
   }
 
+  const resetForm = () => {
+    setFormData({ name: '', accountId: '', accessKeyId: '', secretAccessKey: '', apiToken: '' })
+    setShowForm(false)
+    setEditingConnection(null)
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleEdit = (connection: ConnectionDisplay) => {
+    setEditingConnection(connection)
+    setFormData({
+      name: connection.name,
+      accountId: connection.accountId,
+      accessKeyId: connection.accessKeyId,
+      secretAccessKey: '', // Don't populate for security
+      apiToken: '', // Don't populate for security
+    })
+    setShowForm(true)
   }
 
   return (
@@ -108,6 +140,14 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
           </div>
         )}
 
+        {updateConnectionMutation.isError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="text-red-700 text-sm">
+              {updateConnectionMutation.error?.message || 'Failed to update connection'}
+            </div>
+          </div>
+        )}
+
         {connectMutation.isError && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
             <div className="text-red-700 text-sm">
@@ -127,7 +167,9 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
         {showForm && (
           <div className="bg-white rounded-lg shadow mb-8">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Add New Connection</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                {editingConnection ? 'Edit Connection' : 'Add New Connection'}
+              </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -192,7 +234,28 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
                     value={formData.secretAccessKey}
                     onChange={handleInputChange}
                     required
+                    placeholder={editingConnection ? 'Re-enter for security' : ''}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="apiToken" className="block text-sm font-medium text-gray-700">
+                    Cloudflare API Token (optional)
+                  </label>
+                  <input
+                    type="password"
+                    id="apiToken"
+                    name="apiToken"
+                    value={formData.apiToken ?? ''}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder={
+                      editingConnection
+                        ? 'Re-enter for security (optional)'
+                        : 'Used to provision share Worker automatically'
+                    }
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -200,17 +263,23 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={resetForm}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={addConnectionMutation.isPending}
+                  disabled={addConnectionMutation.isPending || updateConnectionMutation.isPending}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {addConnectionMutation.isPending ? 'Adding...' : 'Add Connection'}
+                  {addConnectionMutation.isPending || updateConnectionMutation.isPending
+                    ? editingConnection
+                      ? 'Updating...'
+                      : 'Adding...'
+                    : editingConnection
+                      ? 'Update Connection'
+                      : 'Add Connection'}
                 </button>
               </div>
             </form>
@@ -248,6 +317,13 @@ const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSucce
                         className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
                         {connectMutation.isPending ? 'Connecting...' : 'Connect'}
+                      </button>
+                      <button
+                        onClick={() => handleEdit(connection)}
+                        disabled={connectMutation.isPending || deleteConnectionMutation.isPending}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        Edit
                       </button>
                       <button
                         onClick={() => handleDelete(connection.id)}

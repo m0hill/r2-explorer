@@ -18,7 +18,15 @@ export default defineConfig({
       fileName: 'main',
     },
     rollupOptions: {
-      external: ['electron', 'better-sqlite3'],
+      external: [
+        'electron',
+        'better-sqlite3',
+        'cloudflare:workers',
+        'bun:sqlite',
+        'blake3-wasm',
+        'alchemy',
+        'alchemy/cloudflare',
+      ],
     },
     emptyOutDir: false,
   },

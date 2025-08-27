@@ -36,6 +36,10 @@ export function registerConnectionHandlers() {
       }
 
       const secretAccessKeyEncrypted = safeStorage.encryptString(data.secretAccessKey)
+      const apiTokenEncrypted =
+        data.apiToken && data.apiToken.trim().length > 0
+          ? safeStorage.encryptString(data.apiToken)
+          : undefined
 
       const result = yield* Effect.tryPromise(() =>
         db
@@ -45,6 +49,7 @@ export function registerConnectionHandlers() {
             accountId: data.accountId,
             accessKeyId: data.accessKeyId,
             secretAccessKeyEncrypted,
+            apiTokenEncrypted,
           })
           .returning({ id: connections.id })
       )
@@ -55,6 +60,44 @@ export function registerConnectionHandlers() {
         Effect.fail(
           new Error(
             `Failed to add connection: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+        )
+      ),
+      Effect.runPromise
+    )
+  )
+
+  ipcMain.handle('connections:update', (_, id: number, data: AddConnectionData) =>
+    Effect.gen(function* () {
+      if (!safeStorage.isEncryptionAvailable()) {
+        yield* Effect.fail(new Error('Encryption not available'))
+      }
+
+      const secretAccessKeyEncrypted = safeStorage.encryptString(data.secretAccessKey)
+      const apiTokenEncrypted =
+        data.apiToken && data.apiToken.trim().length > 0
+          ? safeStorage.encryptString(data.apiToken)
+          : undefined
+
+      yield* Effect.tryPromise(() =>
+        db
+          .update(connections)
+          .set({
+            name: data.name,
+            accountId: data.accountId,
+            accessKeyId: data.accessKeyId,
+            secretAccessKeyEncrypted,
+            apiTokenEncrypted,
+          })
+          .where(eq(connections.id, id))
+      )
+
+      return id
+    }).pipe(
+      Effect.catchAll(error =>
+        Effect.fail(
+          new Error(
+            `Failed to update connection: ${error instanceof Error ? error.message : 'Unknown error'}`
           )
         )
       ),
@@ -105,10 +148,12 @@ export function registerConnectionHandlers() {
       yield* Effect.tryPromise(() => client.send(new ListBucketsCommand({})))
 
       appState.s3Client = client
+      appState.currentConnectionId = id
       return { success: true }
     }).pipe(
       Effect.catchAll(error => {
         appState.s3Client = null
+        appState.currentConnectionId = null
         return Effect.succeed({
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',

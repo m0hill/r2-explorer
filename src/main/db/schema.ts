@@ -7,6 +7,11 @@ export const connections = sqliteTable('connections', {
   accountId: text('account_id').notNull(),
   accessKeyId: text('access_key_id').notNull(),
   secretAccessKeyEncrypted: blob('secret_access_key_encrypted').notNull(),
+  // Optional Cloudflare API token to provision Worker via IaC
+  apiTokenEncrypted: blob('api_token_encrypted'),
+  // Cached worker identity for links; can be rederived but this avoids repeated lookups
+  workerName: text('worker_name'),
+  workerSubdomain: text('worker_subdomain'),
 })
 
 export const presignedUrls = sqliteTable('presigned_urls', {

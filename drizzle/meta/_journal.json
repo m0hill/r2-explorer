@@ -15,6 +15,13 @@
       "when": 1755992180300,
       "tag": "0001_normal_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1756297901256,
+      "tag": "0002_optimal_warbound",
+      "breakpoints": true
     }
   ]
 }

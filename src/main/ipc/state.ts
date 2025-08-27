@@ -4,4 +4,6 @@ import type { BrowserWindow } from 'electron'
 export const appState = {
   s3Client: null as S3Client | null,
   mainWindow: null as BrowserWindow | null,
+  // Track active connection for worker provisioning and share creation
+  currentConnectionId: null as number | null,
 }

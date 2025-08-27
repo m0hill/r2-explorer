@@ -18,7 +18,7 @@ export default defineConfig({
       fileName: 'preload',
     },
     rollupOptions: {
-      external: ['electron'],
+      external: ['electron', 'blake3-wasm'],
     },
     emptyOutDir: false,
   },

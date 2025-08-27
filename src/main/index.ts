@@ -4,6 +4,7 @@ import started from 'electron-squirrel-startup'
 import { registerConnectionHandlers } from './ipc/connectionHandlers'
 import { registerR2Handlers } from './ipc/r2Handlers'
 import { appState } from './ipc/state'
+import { registerWorkerHandlers } from './ipc/workerHandlers'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -44,6 +45,7 @@ app.on('ready', () => {
   // Register all IPC handlers
   registerConnectionHandlers()
   registerR2Handlers()
+  registerWorkerHandlers()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

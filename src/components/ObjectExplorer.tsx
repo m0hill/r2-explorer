@@ -5,6 +5,7 @@ import ActionToolbar from './ActionToolbar'
 import CreateFolderModal from './CreateFolderModal'
 import ObjectHeader from './ObjectHeader'
 import ObjectList from './ObjectList'
+import ShareFolderModal from './ShareFolderModal'
 import ShareModal from './ShareModal'
 
 interface ObjectExplorerProps {
@@ -19,6 +20,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
 
   const [sharingObject, setSharingObject] = useState<R2Object | null>(null)
+  const [sharingFolderPrefix, setSharingFolderPrefix] = useState<string | null>(null)
   const [isCreateFolderModalOpen, setCreateFolderModalOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -183,6 +185,11 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
     setPrefix(folderPrefix)
   }
 
+  const handleShareFolder = (folderPrefix: string) => {
+    setSharingFolderPrefix(folderPrefix)
+    // Worker provisioning and share creation are handled in the modal via mutation
+  }
+
   const handleBreadcrumbClick = (index: number) => {
     const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : []
     if (index === -1) {
@@ -265,6 +272,7 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
           actioningObjects={actioningObjects}
           selectedKeys={selectedKeys}
           onFolderClick={handleFolderClick}
+          onShareFolder={handleShareFolder}
           onSelectionToggle={handleSelectionToggle}
           onDownload={handleDownload}
           onShare={handleShareClick}
@@ -286,6 +294,15 @@ const ObjectExplorer: React.FC<ObjectExplorerProps> = ({ bucketName, onBack }) =
           onClose={() => setSharingObject(null)}
           bucketName={bucketName}
           objectKey={sharingObject.key}
+        />
+      )}
+
+      {sharingFolderPrefix && (
+        <ShareFolderModal
+          isOpen={!!sharingFolderPrefix}
+          onClose={() => setSharingFolderPrefix(null)}
+          bucketName={bucketName}
+          folderPrefix={sharingFolderPrefix}
         />
       )}
     </div>
